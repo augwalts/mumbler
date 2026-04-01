@@ -13,17 +13,10 @@ class AppState: ObservableObject {
     let speechTranscriber = SpeechTranscriber()
     let pasteService = PasteService()
 
-    var floatingPanel: MumblerPanel?
-
     init() {
-        // Deferred to next run loop so NSApp is fully initialized
-        DispatchQueue.main.async {
-            Task { @MainActor in
-                self.setupTranscriberCallbacks()
-                self.floatingPanel = MumblerPanel(appState: self)
-                self.floatingPanel?.show()
-                await Permissions.requestAll()
-            }
+        setupTranscriberCallbacks()
+        Task {
+            _ = await Permissions.requestAll()
         }
     }
 
@@ -50,7 +43,6 @@ class AppState: ObservableObject {
                     self.statusMessage = "Copied"
                 }
 
-                // Reset status after a delay
                 Task {
                     try? await Task.sleep(nanoseconds: 2_000_000_000)
                     await MainActor.run { self.statusMessage = "Ready" }
@@ -61,9 +53,8 @@ class AppState: ObservableObject {
         speechTranscriber.onError = { [weak self] error in
             Task { @MainActor in
                 guard let self = self else { return }
-                self.statusMessage = "Error"
                 self.isRecording = false
-
+                self.statusMessage = "Error: \(error.localizedDescription)"
                 Task {
                     try? await Task.sleep(nanoseconds: 3_000_000_000)
                     await MainActor.run { self.statusMessage = "Ready" }
@@ -75,11 +66,7 @@ class AppState: ObservableObject {
     // MARK: - Recording Control
 
     func toggleRecording() {
-        if isRecording {
-            stopRecording()
-        } else {
-            startRecording()
-        }
+        isRecording ? stopRecording() : startRecording()
     }
 
     func startRecording() {
@@ -87,12 +74,12 @@ class AppState: ObservableObject {
 
         guard Permissions.microphoneStatus == .granted else {
             statusMessage = "Need mic access"
-            Task { await Permissions.requestMicrophone() }
+            Task { _ = await Permissions.requestMicrophone() }
             return
         }
         guard Permissions.speechStatus == .granted else {
             statusMessage = "Need speech access"
-            Task { await Permissions.requestSpeech() }
+            Task { _ = await Permissions.requestSpeech() }
             return
         }
 
@@ -109,7 +96,7 @@ class AppState: ObservableObject {
             try audioRecorder.startRecording()
             isRecording = true
         } catch {
-            statusMessage = "Mic error"
+            statusMessage = "Mic error: \(error.localizedDescription)"
             speechTranscriber.cancel()
         }
     }

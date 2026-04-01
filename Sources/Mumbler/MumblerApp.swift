@@ -6,9 +6,11 @@ struct MumblerApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView(appState: appState)
+            MumblerWindowView(appState: appState)
         } label: {
             Image(systemName: appState.isRecording ? "mic.fill" : "mic")
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(appState.isRecording ? .red : .primary)
         }
         .menuBarExtraStyle(.window)
     }
