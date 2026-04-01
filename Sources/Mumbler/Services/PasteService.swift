@@ -25,7 +25,6 @@ class PasteService {
         // Small delay to ensure pasteboard write commits, then simulate Cmd+V
         DispatchQueue.main.asyncAfter(deadline: .now() + Constants.pasteDelay) { [weak self] in
             self?.simulateCmdV()
-            Log.info("Cmd+V simulated")
 
             // Restore previous clipboard after paste completes
             DispatchQueue.main.asyncAfter(deadline: .now() + Constants.clipboardRestoreDelay) { [weak self] in
@@ -67,5 +66,6 @@ class PasteService {
 
         keyDown.post(tap: .cghidEventTap)
         keyUp.post(tap: .cghidEventTap)
+        Log.info("Cmd+V simulated")
     }
 }

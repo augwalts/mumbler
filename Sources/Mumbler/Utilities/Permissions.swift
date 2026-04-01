@@ -66,7 +66,7 @@ enum Permissions {
         let speech = await requestSpeech()
         let accessibility = accessibilityGranted
         if !accessibility {
-            promptAccessibility()
+            Log.info("Accessibility not granted — auto-paste won't work. Grant in System Settings > Privacy & Security > Accessibility")
         }
         return (mic, speech, accessibility)
     }

@@ -60,10 +60,11 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
-# Ad-hoc codesign — sign the binary first, then the bundle
-echo "Signing app bundle..."
-codesign --force --sign - "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
-codesign --force --sign - "${APP_BUNDLE}"
+# Codesign with persistent identity (Accessibility permission survives rebuilds)
+SIGN_IDENTITY="Mumbler Dev"
+echo "Signing app bundle with '${SIGN_IDENTITY}'..."
+codesign --force --sign "${SIGN_IDENTITY}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
+codesign --force --sign "${SIGN_IDENTITY}" "${APP_BUNDLE}"
 
 # Install to ~/Applications (ad-hoc signed apps can't use /Applications on macOS 26+)
 INSTALL_DIR="${HOME}/Applications"
