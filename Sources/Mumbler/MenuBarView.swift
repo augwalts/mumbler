@@ -25,9 +25,6 @@ struct MenuBarView: View {
                         .foregroundColor(appState.isRecording ? .red : .primary)
                     Text(appState.isRecording ? "Stop Recording" : "Start Recording")
                     Spacer()
-                    Text("\u{2325}Space")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
                 }
             }
             .buttonStyle(.plain)
@@ -68,12 +65,6 @@ struct MenuBarView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)
 
-            Toggle("Hold to record", isOn: $appState.holdToRecord)
-                .toggleStyle(.checkbox)
-                .font(.system(size: 11))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-
             Divider()
 
             // Permissions
@@ -84,9 +75,18 @@ struct MenuBarView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
 
+            // Show/hide floating panel
+            Button(appState.floatingPanel != nil ? "Hide Panel" : "Show Panel") {
+                if let panel = appState.floatingPanel {
+                    panel.show()
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+
             Divider()
 
-            // Quit
             Button("Quit Mumbler") {
                 NSApplication.shared.terminate(nil)
             }
@@ -95,7 +95,7 @@ struct MenuBarView: View {
             .padding(.vertical, 6)
             .keyboardShortcut("q", modifiers: .command)
         }
-        .frame(width: 260)
+        .frame(width: 240)
         .padding(.vertical, 4)
     }
 

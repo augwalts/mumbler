@@ -5,7 +5,6 @@ enum Constants {
     static let bundleIdentifier = "com.augustine.mumbler"
 
     // UserDefaults keys
-    static let holdToRecordKey = "holdToRecord"
     static let autoPasteKey = "autoPaste"
 
     // Clipboard restore delay after paste (seconds)
@@ -13,7 +12,7 @@ enum Constants {
     // Delay before simulating Cmd+V (seconds)
     static let pasteDelay: TimeInterval = 0.05
 
-    // Recording indicator window size
-    static let indicatorWidth: CGFloat = 280
-    static let indicatorHeight: CGFloat = 60
+    // Floating panel size
+    static let indicatorWidth: CGFloat = 260
+    static let indicatorHeight: CGFloat = 64
 }
