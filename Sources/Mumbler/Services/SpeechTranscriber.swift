@@ -1,75 +1,120 @@
 import Speech
 import AVFoundation
 
+enum SpeechError: LocalizedError {
+    case noRecognizer
+
+    var errorDescription: String? {
+        switch self {
+        case .noRecognizer:
+            return "Speech recognition is not available for this locale"
+        }
+    }
+}
+
 class SpeechTranscriber {
-    private let speechRecognizer: SFSpeechRecognizer
+    private let speechRecognizer: SFSpeechRecognizer?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
+    private let queue = DispatchQueue(label: "com.augustine.mumbler.speech-transcriber")
+    private var generation: UInt64 = 0
 
     var onPartialResult: ((String) -> Void)?
     var onFinalResult: ((String) -> Void)?
     var onError: ((Error) -> Void)?
 
+    var isAvailable: Bool { speechRecognizer != nil }
+
     init(locale: Locale = .current) {
-        self.speechRecognizer = SFSpeechRecognizer(locale: locale) ?? SFSpeechRecognizer()!
+        self.speechRecognizer = SFSpeechRecognizer(locale: locale) ?? SFSpeechRecognizer()
     }
 
     func startTranscription() {
-        // Cancel any existing task
-        recognitionTask?.cancel()
-        recognitionTask = nil
+        queue.sync {
+            // Cancel and clean up any existing session
+            recognitionTask?.cancel()
+            recognitionRequest = nil
+            recognitionTask = nil
 
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        request.shouldReportPartialResults = true
-        request.addsPunctuation = true
+            generation += 1
+            let currentGeneration = generation
 
-        // Prefer on-device recognition
-        if speechRecognizer.supportsOnDeviceRecognition {
-            request.requiresOnDeviceRecognition = true
-        }
+            guard let speechRecognizer = speechRecognizer else {
+                Log.error("No speech recognizer available")
+                onError?(SpeechError.noRecognizer)
+                return
+            }
 
-        recognitionRequest = request
+            let request = SFSpeechAudioBufferRecognitionRequest()
+            request.shouldReportPartialResults = true
+            request.addsPunctuation = true
 
-        recognitionTask = speechRecognizer.recognitionTask(with: request) { [weak self] result, error in
-            guard let self = self else { return }
+            if speechRecognizer.supportsOnDeviceRecognition {
+                request.requiresOnDeviceRecognition = true
+                Log.info("Using on-device speech recognition")
+            } else {
+                Log.info("Using server-based speech recognition")
+            }
 
-            if let result = result {
-                let text = result.bestTranscription.formattedString
-                if result.isFinal {
-                    self.onFinalResult?(text)
-                    self.cleanup()
-                } else {
-                    self.onPartialResult?(text)
+            recognitionRequest = request
+
+            recognitionTask = speechRecognizer.recognitionTask(with: request) { [weak self] result, error in
+                guard let self = self else { return }
+
+                self.queue.async {
+                    guard self.generation == currentGeneration else { return }
+
+                    if let result = result {
+                        let text = result.bestTranscription.formattedString
+                        if result.isFinal {
+                            Log.info("Final transcript: \(text.prefix(80))...")
+                            self.onFinalResult?(text)
+                            self.cleanupInternal()
+                        } else {
+                            self.onPartialResult?(text)
+                        }
+                    }
+
+                    if let error = error {
+                        let nsError = error as NSError
+                        if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 216 {
+                            Log.info("Recognition cancelled (expected)")
+                            return
+                        }
+                        Log.error("Speech recognition error: \(error.localizedDescription)")
+                        self.onError?(error)
+                        self.cleanupInternal()
+                    }
                 }
             }
 
-            if let error = error {
-                // Ignore cancellation errors
-                let nsError = error as NSError
-                if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 216 {
-                    // Recognition was cancelled — not a real error
-                    return
-                }
-                self.onError?(error)
-                self.cleanup()
-            }
+            Log.info("Transcription started (generation \(currentGeneration))")
         }
     }
 
     func appendBuffer(_ buffer: AVAudioPCMBuffer) {
-        recognitionRequest?.append(buffer)
+        queue.async { [weak self] in
+            self?.recognitionRequest?.append(buffer)
+        }
     }
 
     func stopTranscription() {
-        recognitionRequest?.endAudio()
+        queue.async { [weak self] in
+            self?.recognitionRequest?.endAudio()
+            Log.info("Audio ended — waiting for final result")
+        }
     }
 
     func cancel() {
-        recognitionTask?.cancel()
-        cleanup()
+        queue.sync {
+            recognitionTask?.cancel()
+            cleanupInternal()
+            Log.info("Transcription cancelled")
+        }
     }
 
-    private func cleanup() {
+    /// Must be called on `queue`.
+    private func cleanupInternal() {
         recognitionRequest = nil
         recognitionTask = nil
     }
