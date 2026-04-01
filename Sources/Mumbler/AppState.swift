@@ -30,7 +30,12 @@ class AppState: ObservableObject {
     private func setupTranscriberCallbacks() {
         speechTranscriber.onPartialResult = { [weak self] text in
             Task { @MainActor in
-                self?.currentTranscript = text
+                guard let self = self else { return }
+                if self.accumulatedTranscript.isEmpty {
+                    self.currentTranscript = text
+                } else {
+                    self.currentTranscript = self.accumulatedTranscript + " " + text
+                }
             }
         }
 
@@ -83,6 +88,9 @@ class AppState: ObservableObject {
                 self.transcriptionTimeoutTask?.cancel()
                 self.transcriptionTimeoutTask = nil
 
+                if self.isRecording {
+                    self.audioRecorder.stopRecording()
+                }
                 self.isRecording = false
                 self.statusMessage = "Error: \(error.localizedDescription)"
                 Log.error("Transcription error: \(error.localizedDescription)")
