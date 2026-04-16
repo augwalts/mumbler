@@ -18,6 +18,9 @@ mkdir -p "${APP_BUNDLE}/Contents/Resources"
 # Copy binary
 cp "${BUILD_DIR}/${APP_NAME}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 
+# Copy icon
+cp "Sources/Mumbler/Resources/AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
+
 # Create PkgInfo
 echo -n "APPL????" > "${APP_BUNDLE}/Contents/PkgInfo"
 
@@ -45,6 +48,8 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSMicrophoneUsageDescription</key>
@@ -55,16 +60,31 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
-# Ad-hoc codesign (required for Accessibility permission to work)
-echo "Signing app bundle..."
-codesign --force --sign - "${APP_BUNDLE}"
+# Codesign with persistent identity (Accessibility permission survives rebuilds)
+SIGN_IDENTITY="Mumbler Dev"
+echo "Signing app bundle with '${SIGN_IDENTITY}'..."
+codesign --force --sign "${SIGN_IDENTITY}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
+codesign --force --sign "${SIGN_IDENTITY}" "${APP_BUNDLE}"
+
+# Install to ~/Applications (ad-hoc signed apps can't use /Applications on macOS 26+)
+INSTALL_DIR="${HOME}/Applications"
+mkdir -p "${INSTALL_DIR}"
+
+# Kill running instance before replacing
+pkill -x "${APP_NAME}" 2>/dev/null || true
+
+# Remove stale installs
+rm -rf "${INSTALL_DIR}/${APP_BUNDLE}"
+rm -rf "/Applications/${APP_BUNDLE}" 2>/dev/null || true
+
+cp -r "${APP_BUNDLE}" "${INSTALL_DIR}/"
 
 echo ""
-echo "Build complete: ${APP_BUNDLE}"
+echo "Build complete: ${INSTALL_DIR}/${APP_BUNDLE}"
 echo ""
-echo "To install:"
-echo "  cp -r ${APP_BUNDLE} /Applications/"
-echo "  open /Applications/${APP_BUNDLE}"
+echo "To launch:"
+echo "  open ~/Applications/${APP_BUNDLE}"
+echo "  # Or with logs: ~/Applications/${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 echo ""
 echo "On first launch, grant these permissions:"
 echo "  1. Microphone (auto-prompted)"

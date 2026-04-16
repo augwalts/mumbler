@@ -8,6 +8,7 @@ let package = Package(
         .executableTarget(
             name: "Mumbler",
             path: "Sources/Mumbler",
+            exclude: ["Resources"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]
